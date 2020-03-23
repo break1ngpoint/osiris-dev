@@ -28,7 +28,7 @@ ARITHMETIC_TIMEOUT = 15000
 UNIT_TEST = 0
 
 # timeout to run symbolic execution (in secs)
-GLOBAL_TIMEOUT = 50
+GLOBAL_TIMEOUT = 30 * 60  # 50
 
 # timeout to run symbolic execution (in secs) for testing
 GLOBAL_TIMEOUT_TEST = 2
@@ -71,3 +71,24 @@ RESULTS_DIR = "results/"
 
 # (Experimental) Interprocedural taint analysis (1) or Intraprocedural taint analysis (0)
 INTERPROCEDURAL_TAINT = 0
+
+# Bytecode to check addition overflow
+ADDITION_OVERFLOW_CHECK = '5b91908181018281101561{:04x}57600080fd5b9150509056'
+
+# Bytecode to check multiplication overflow
+MULTIPLICATION_OVERFLOW_CHECK = ''
+
+# Bytecode to check subtraction underflow
+SUBTRACTION_UNDERFLOW_CHECK = ''
+
+# Bytecode to check division zero
+DIVISION_ZERO_CHECK = ''
+
+# Bytecode to check modulo zero
+MODULO_ZERO_CHECK = ''
+
+# Bytecode to patch instructions
+INSTRUCTION_PATCH = '61{:04x}61{:04x}565b'
+
+# Directory to store patched bytecode files
+PATCHED_DIR = "patched/"

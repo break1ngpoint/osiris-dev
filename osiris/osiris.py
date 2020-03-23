@@ -134,9 +134,9 @@ def analyze(processed_evm_file, disasm_file, source_map = None):
 
     # Run symExec
     if source_map is not None:
-        symExec.main(disasm_file, args.source, source_map)
+        symExec.main(disasm_file, processed_evm_file, args.source, source_map)
     else:
-        symExec.main(disasm_file, args.source)
+        symExec.main(disasm_file, processed_evm_file, args.source)
 
 def remove_temporary_file(path):
     '''Does what it says (no matter if the file was temporary).

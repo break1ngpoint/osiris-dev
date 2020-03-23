@@ -30,6 +30,8 @@ from taintFlow import *
 import web3
 from web3 import Web3, IPCProvider
 
+import patch
+
 log = logging.getLogger(__name__)
 
 UNSIGNED_BOUND_NUMBER = 2**256 - 1
@@ -46,6 +48,7 @@ class Parameter:
             "pre_block": 0,
             "func_call": -1,
             "stack": [],
+            "pstack": [],
             "calls": [],
             "memory": [],
             "models": [],
@@ -588,6 +591,7 @@ def sym_exec_block(params):
     visited = params.visited
     depth = params.depth
     stack = params.stack
+    pstack = params.pstack
     mem = params.mem
     memory = params.memory
     global_state = params.global_state
@@ -817,6 +821,7 @@ def sym_exec_ins(params):
     global source_map
     global validator
     global g_timeout
+    global jump_table
 
     if g_timeout:
         raise Exception("timeout")
@@ -824,6 +829,7 @@ def sym_exec_ins(params):
     start = params.block
     instr = params.instr
     stack = params.stack
+    pstack = params.pstack
     mem = params.mem
     memory = params.memory
     global_state = params.global_state
@@ -891,6 +897,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for addition overflow
             if is_input_tainted(instruction_object):
                 addition_overflow_check(first, second, analysis, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -911,6 +921,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for multiplication overflow
             if is_input_tainted(instruction_object):
                 multiplication_overflow_check(first, second, analysis, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -934,6 +948,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for subtraction underflow
             if is_input_tainted(instruction_object):
                 subtraction_underflow_check(first, second, analysis, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -966,6 +984,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, False, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
             # Check for unsigned division
@@ -1016,6 +1038,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, True, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
             # Check for signed division
@@ -1051,6 +1077,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signed conversion
             check_signedness_conversion(computed, type_information, False, False, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
             # Check for modulo zero
@@ -1095,6 +1125,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, True, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
             # Check for modulo zero
@@ -1133,6 +1167,11 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for modulo zero
             if is_input_tainted(instruction_object):
                 modulo_check(third, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -1169,6 +1208,11 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for modulo zero
             if is_input_tainted(instruction_object):
                 modulo_check(third, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -1189,6 +1233,10 @@ def sym_exec_ins(params):
                 computed = BitVec(new_var_name, 256)
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "SIGNEXTEND":
@@ -1227,6 +1275,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, True, True, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
             # Check for width conversion
@@ -1259,6 +1311,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, False, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
         else:
@@ -1282,6 +1338,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signed conversion
             check_signedness_conversion(computed, type_information, False, False, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
         else:
@@ -1305,6 +1365,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, True, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
         else:
@@ -1328,6 +1392,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for signedness conversion
             check_signedness_conversion(computed, type_information, False, True, instruction_object, path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
         else:
@@ -1346,6 +1414,10 @@ def sym_exec_ins(params):
                 computed = If(first == second, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "ISZERO":
@@ -1364,6 +1436,9 @@ def sym_exec_ins(params):
                 computed = If(flag == 0, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "AND":
@@ -1377,6 +1452,10 @@ def sym_exec_ins(params):
             computed = simplify(computed) if is_expr(computed) else computed
             instruction_object.data_out = [computed]
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
             # Check for width conversion
             if is_input_tainted(instruction_object) or global_params.LOOP_LIMIT >= 256:
                 conversion = check_width_conversion(first, second, computed, instruction_object, vertices[params.block], path_conditions_and_vars["path_condition"], arithmetic_errors, arithmetic_models, global_state["pc"] - 1)
@@ -1398,6 +1477,10 @@ def sym_exec_ins(params):
             computed = first | second
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "XOR":
@@ -1408,6 +1491,10 @@ def sym_exec_ins(params):
             computed = first ^ second
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "NOT":
@@ -1417,6 +1504,9 @@ def sym_exec_ins(params):
             computed = (~first) & UNSIGNED_BOUND_NUMBER
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "BYTE":
@@ -1445,6 +1535,10 @@ def sym_exec_ins(params):
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     #
@@ -1484,6 +1578,10 @@ def sym_exec_ins(params):
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
                 stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     #
@@ -1492,6 +1590,8 @@ def sym_exec_ins(params):
     elif instr_parts[0] == "ADDRESS":  # get address of currently executing account
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, path_conditions_and_vars["Ia"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "BALANCE":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
@@ -1511,18 +1611,27 @@ def sym_exec_ins(params):
                 hashed_address = str(address)
             global_state["balance"][hashed_address] = new_var
             stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "CALLER":  # get caller address
         # that is directly responsible for this execution
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["sender_address"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "ORIGIN":  # get execution origination address
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["origin"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "CALLVALUE":  # get value of this transaction
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["value"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "CALLDATALOAD":  # from input data from environment
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
@@ -1548,6 +1657,9 @@ def sym_exec_ins(params):
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
             stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
             initialize_var(new_var, type_information)
         else:
             raise ValueError('STACK underflow')
@@ -1560,6 +1672,8 @@ def sym_exec_ins(params):
             new_var = BitVec(new_var_name, 256)
             path_conditions_and_vars[new_var_name] = new_var
         stack.insert(0, new_var)
+        # Update pointer stack
+        pstack.insert(0, 0)
         initialize_var(new_var, type_information)
     elif instr_parts[0] == "CALLDATACOPY":  # Copy input data to memory
         #  TODO: Don't know how to simulate this yet
@@ -1568,6 +1682,10 @@ def sym_exec_ins(params):
             stack.pop(0)
             stack.pop(0)
             stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "CODESIZE":
@@ -1579,12 +1697,18 @@ def sym_exec_ins(params):
             evm = evm_file.read()[:-1]
             code_size = len(evm)/2
             stack.insert(0, code_size)
+            # Update pointer stack
+            pstack.insert(0, 0)
     elif instr_parts[0] == "CODECOPY":
         if len(stack) > 2:
             global_state["pc"] = global_state["pc"] + 1
             mem_location = stack.pop(0)
             code_from = stack.pop(0)
             no_bytes = stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
             current_miu_i = global_state["miu_i"]
 
             if isAllReal(mem_location, current_miu_i, code_from, no_bytes):
@@ -1626,6 +1750,8 @@ def sym_exec_ins(params):
     elif instr_parts[0] == "GASPRICE":
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["gas_price"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "EXTCODESIZE":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
@@ -1642,6 +1768,9 @@ def sym_exec_ins(params):
                     new_var = BitVec(new_var_name, 256)
                     path_conditions_and_vars[new_var_name] = new_var
                 stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "EXTCODECOPY":
@@ -1651,6 +1780,11 @@ def sym_exec_ins(params):
             mem_location = stack.pop(0)
             code_from = stack.pop(0)
             no_bytes = stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
             current_miu_i = global_state["miu_i"]
 
             if isAllReal(address, mem_location, current_miu_i, code_from, no_bytes) and USE_GLOBAL_BLOCKCHAIN:
@@ -1690,6 +1824,10 @@ def sym_exec_ins(params):
             stack.pop(0)
             stack.pop(0)
             stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "RETURNDATASIZE":
@@ -1697,6 +1835,8 @@ def sym_exec_ins(params):
         new_var_name = gen.gen_arbitrary_var()
         new_var = BitVec(new_var_name, 256)
         stack.insert(0, new_var)
+        # Update pointer stack
+        pstack.insert(0, 0)
     #
     #  40s: Block Information
     #
@@ -1711,23 +1851,36 @@ def sym_exec_ins(params):
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
             stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "COINBASE":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["currentCoinbase"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "TIMESTAMP":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["currentTimestamp"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "NUMBER":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["currentNumber"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "DIFFICULTY":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["currentDifficulty"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "GASLIMIT":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["currentGasLimit"])
+        # Update pointer stack
+        pstack.insert(0, 0)
     #
     #  50s: Stack, Memory, Storage, and Flow Information
     #
@@ -1735,6 +1888,8 @@ def sym_exec_ins(params):
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "MLOAD":
@@ -1773,6 +1928,9 @@ def sym_exec_ins(params):
                     initialize_var(new_var, type_information)
                 log.debug("temp: " + str(temp))
                 log.debug("current_miu_i: " + str(current_miu_i))
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
             global_state["miu_i"] = current_miu_i
         else:
             raise ValueError('STACK underflow')
@@ -1781,6 +1939,9 @@ def sym_exec_ins(params):
             global_state["pc"] = global_state["pc"] + 1
             stored_address = stack.pop(0)
             stored_value = stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
             current_miu_i = global_state["miu_i"]
             if isReal(stored_address):
                 # preparing data for hashing later
@@ -1823,6 +1984,9 @@ def sym_exec_ins(params):
             global_state["pc"] = global_state["pc"] + 1
             stored_address = stack.pop(0)
             temp_value = stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
             stored_value = temp_value % 256  # get the least byte
             current_miu_i = global_state["miu_i"]
             if isAllReal(stored_address, current_miu_i):
@@ -1875,6 +2039,9 @@ def sym_exec_ins(params):
                 new_var = path_conditions_and_vars[new_var_name]
                 stack.insert(0, new_var)
                 global_state["Ia"][address] = new_var
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
 
@@ -1885,12 +2052,20 @@ def sym_exec_ins(params):
             global_state["pc"] = global_state["pc"] + 1
             stored_address = stack.pop(0)
             stored_value = stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
             global_state["Ia"][stored_address] = stored_value
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "JUMP":
         if len(stack) > 0:
             target_address = stack.pop(0)
+            # Update pointer stack
+            top = pstack.pop(0)
+            source_pc = top[0]
+            position = top[1]
+            jump_table.append([source_pc, position, target_address])
             if isSymbolic(target_address):
                 try:
                     target_address = int(str(simplify(target_address)))
@@ -1913,6 +2088,12 @@ def sym_exec_ins(params):
                     raise TypeError("Target address must be an integer")
             vertices[start].set_jump_target(target_address)
             flag = stack.pop(0)
+            # Update pointer stack
+            top = pstack.pop(0)
+            source_pc = top[0]
+            position = top[1]
+            jump_table.append([source_pc, position, target_address])
+            pstack.pop(0)
 
             if flag.__class__.__name__ == "BitVecNumRef":
                 flag = flag.as_long()
@@ -1949,11 +2130,15 @@ def sym_exec_ins(params):
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "PC":
         stack.insert(0, global_state["pc"])
+        # Update pointer stack
+        pstack.insert(0, 0)
         global_state["pc"] = global_state["pc"] + 1
     elif instr_parts[0] == "MSIZE":
         global_state["pc"] = global_state["pc"] + 1
         msize = 32 * global_state["miu_i"]
         stack.insert(0, msize)
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "GAS":
         # In general, we do not have this precisely. It depends on both
         # the initial gas and the amount has been depleted
@@ -1964,6 +2149,8 @@ def sym_exec_ins(params):
         new_var = BitVec(new_var_name, 256)
         path_conditions_and_vars[new_var_name] = new_var
         stack.insert(0, new_var)
+        # Update pointer stack
+        pstack.insert(0, 0)
     elif instr_parts[0] == "JUMPDEST":
         # Literally do nothing
         global_state["pc"] = global_state["pc"] + 1
@@ -1975,6 +2162,8 @@ def sym_exec_ins(params):
         global_state["pc"] = global_state["pc"] + 1 + position
         pushed_value = int(instr_parts[1], 16)
         stack.insert(0, pushed_value)
+        # Update pointer stack
+        pstack.insert(0, [global_state["pc"] - position, position])
         if global_params.UNIT_TEST == 3: # test evm symbolic
             stack[0] = BitVecVal(stack[0], 256)
     #
@@ -1986,6 +2175,9 @@ def sym_exec_ins(params):
         if len(stack) > position:
             duplicate = stack[position]
             stack.insert(0, duplicate)
+            # Update pointer stack
+            duplicate = pstack[position]
+            pstack.insert(0, duplicate)
         else:
             raise ValueError('STACK underflow')
 
@@ -1999,6 +2191,10 @@ def sym_exec_ins(params):
             temp = stack[position]
             stack[position] = stack[0]
             stack[0] = temp
+            # Update pointer stack
+            temp = pstack[position]
+            pstack[position] = pstack[0]
+            pstack[0] = temp
         else:
             raise ValueError('STACK underflow')
 
@@ -2011,6 +2207,8 @@ def sym_exec_ins(params):
         num_of_pops = 2 + int(instr_parts[0][3:])
         while num_of_pops > 0:
             stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
             num_of_pops -= 1
 
     #
@@ -2025,6 +2223,11 @@ def sym_exec_ins(params):
             new_var_name = gen.gen_arbitrary_var()
             new_var = BitVec(new_var_name, 256)
             stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "CALL":
@@ -2090,6 +2293,15 @@ def sym_exec_ins(params):
                         path_conditions_and_vars["path_condition"].append(constraint)
                         new_balance = (old_balance + transfer_amount)
                         global_state["balance"][new_address_name] = new_balance
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "CALLCODE":
@@ -2132,6 +2344,15 @@ def sym_exec_ins(params):
                 path_conditions_and_vars["path_condition"].append(is_enough_fund)
                 last_idx = len(path_conditions_and_vars["path_condition"]) - 1
                 analysis["time_dependency_bug"][last_idx]
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "DELEGATECALL":
@@ -2146,6 +2367,14 @@ def sym_exec_ins(params):
             new_var_name = gen.gen_arbitrary_var()
             new_var = BitVec(new_var_name, 256)
             stack.insert(0, new_var)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.pop(0)
+            pstack.insert(0, 0)
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "RETURN" or instr_parts[0] == "REVERT":
@@ -2154,12 +2383,17 @@ def sym_exec_ins(params):
             global_state["pc"] = global_state["pc"] + 1
             stack.pop(0)
             stack.pop(0)
+            # Update pointer stack
+            pstack.pop(0)
+            pstack.pop(0)
             pass
         else:
             raise ValueError('STACK underflow')
     elif instr_parts[0] == "SUICIDE":
         global_state["pc"] = global_state["pc"] + 1
         recipient = stack.pop(0)
+        # Update pointer stack
+        pstack.pop(0)
         transfer_amount = global_state["balance"]["Ia"]
         global_state["balance"]["Ia"] = 0
         if isReal(recipient):
@@ -2520,7 +2754,7 @@ def detect_arithmetic_errors():
                 print ""
 
     arithmetic_bug_found = any([arithmetic_error for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
-    overflow_bug_found   = any([ErrorTypes.OVERFLOW in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
+    overflow_bug_found   = any([ErrorTypes.ADDOVERFLOW in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]]) or any([ErrorTypes.MULOVERFLOW in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
     underflow_bug_found  = any([ErrorTypes.UNDERFLOW in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
     division_bug_found   = any([ErrorTypes.DIVISION in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
     modulo_bug_found     = any([ErrorTypes.MODULO in arithmetic_error["type"] for arithmetic_error in arithmetic_errors if arithmetic_error["validated"]])
@@ -2530,7 +2764,7 @@ def detect_arithmetic_errors():
     log.info("\t  Arithmetic bugs: \t %s", arithmetic_bug_found)
     if source_map:
         # Overflow bugs
-        pcs = [arithmetic_error["pc"] for arithmetic_error in arithmetic_errors if ErrorTypes.OVERFLOW in arithmetic_error["type"] and arithmetic_error["validated"]]
+        pcs = [arithmetic_error["pc"] for arithmetic_error in arithmetic_errors if ErrorTypes.ADDOVERFLOW or ErrorTypes.MULOVERFLOW in arithmetic_error["type"] and arithmetic_error["validated"]]
         pcs = [pc for pc in pcs if source_map.find_source_code(pc)]
         pcs = source_map.reduce_same_position_pcs(pcs)
         s = source_map.to_str(pcs, "Overflow bugs")
@@ -2627,7 +2861,7 @@ def detect_arithmetic_errors():
         log.info(s)
     else:
         # Overflow bugs
-        pcs = [arithmetic_error["pc"] for arithmetic_error in arithmetic_errors if ErrorTypes.OVERFLOW in arithmetic_error["type"] and arithmetic_error["validated"]]
+        pcs = [arithmetic_error["pc"] for arithmetic_error in arithmetic_errors if ErrorTypes.ADDOVERFLOW or ErrorTypes.MULOVERFLOW in arithmetic_error["type"] and arithmetic_error["validated"]]
         pcs = set(pcs)
         s = ""
         for pc in pcs:
@@ -2845,13 +3079,13 @@ def closing_message():
         elif '.bin.evm.disasm' in c_name:
             result_file = os.path.join(global_params.RESULTS_DIR, c_name.replace('.bin.evm.disasm', '.json').split('/')[-1])
         if not os.path.isfile(result_file):
-            with open(result_file, 'a') as of:
+            with open(result_file, 'w') as of:
                 if ':' in c_name:
                     of.write("{")
                     of.write('"'+str(c_name.split(':')[1].replace('.evm.disasm', ''))+'":')
                 of.write(json.dumps(results, indent=1))
         else:
-            with open(result_file, 'a') as of:
+            with open(result_file, 'w') as of:
                 if ':' in c_name:
                     of.write(",")
                     of.write('"'+str(c_name.split(':')[1].replace('.evm.disasm', ''))+'":')
@@ -2875,17 +3109,21 @@ def results_for_web():
     print "======= results ======="
     print json.dumps(results)
 
-def main(contract, contract_sol, _source_map = None):
+def main(contract, contract_evm, contract_sol, _source_map = None):
     global c_name
+    global c_name_evm
     global c_name_sol
     global source_map
     global validator
     global start_time
+    global jump_table
 
     c_name = contract
+    c_name_evm = contract_evm
     c_name_sol = contract_sol
     source_map = _source_map
     validator = Validator(source_map)
+    jump_table = []
 
     check_unit_test_file()
     initGlobalVars()
@@ -2923,6 +3161,10 @@ def main(contract, contract_sol, _source_map = None):
 
     detect_bugs()
     closing_message()
+    # Patch arithmetic errors
+    patch.patch_arithmetic_errors(c_name, c_name_evm, c_name_sol,
+                                  arithmetic_errors, jump_table, source_map)
+
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

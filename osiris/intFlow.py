@@ -8,7 +8,7 @@ from z3 import *
 def enum(**named_values):
     return type('Enum', (), named_values)
 
-ErrorTypes = enum(OVERFLOW='Overflow', UNDERFLOW='Underflow', SIGNEDNESS='Signedness', DIVISION='Division', MODULO='Modulo', WIDTH_CONVERSION='Width conversion')
+ErrorTypes = enum(ADDOVERFLOW='AddOverflow', MULOVERFLOW='MulOverflow', UNDERFLOW='Underflow', SIGNEDNESS='Signedness', DIVISION='Division', MODULO='Modulo', WIDTH_CONVERSION='Width conversion')
 
 IntegerTypes = enum(TOP='Top', SIGNED='Signed', UNSIGNED='Unsigned', BOTTOM='Bottom')
 
@@ -235,7 +235,7 @@ def addition_overflow_check(augend, addend, analysis, instruction, path_conditio
             arithmetic_error = {}
             arithmetic_error["instruction"] = instruction
             arithmetic_error["validated"]   = False
-            arithmetic_error["type"]        = ErrorTypes.OVERFLOW
+            arithmetic_error["type"]        = ErrorTypes.ADDOVERFLOW
             arithmetic_error["pc"]          = pc
             if global_params.MODEL_INPUT:
                 if not pc in arithmetic_models:
@@ -350,7 +350,7 @@ def multiplication_overflow_check(multiplier, multiplicand, analysis, instructio
             arithmetic_error = {}
             arithmetic_error["instruction"] = instruction
             arithmetic_error["validated"]   = False
-            arithmetic_error["type"]        = ErrorTypes.OVERFLOW
+            arithmetic_error["type"]        = ErrorTypes.MULOVERFLOW
             arithmetic_error["pc"]          = pc
             if global_params.MODEL_INPUT:
                 if not pc in arithmetic_models:
